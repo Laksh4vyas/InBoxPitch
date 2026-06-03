@@ -1,0 +1,64 @@
+# ========================
+# Environment & Secrets
+# ========================
+.env
+*.env
+.env.*
+!.env.example
+
+# ========================
+# Python
+# ========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ========================
+# Virtual Environments
+# ========================
+venv/
+env/
+.venv/
+.env/
+
+# ========================
+# Uploaded Files (runtime data)
+# ========================
+data/
+resume/
+sent_log.csv
+
+# ========================
+# IDE / Editor
+# ========================
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# ========================
+# OS Files
+# ========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ========================
+# Logs
+# ========================
+*.log
+logs/
+
+# ========================
+# Misc
+# ========================
+*.bak
+*.swp
+*.tmp

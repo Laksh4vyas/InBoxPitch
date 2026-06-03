@@ -1,0 +1,16 @@
+pymupdf
+google-genai
+python-dotenv
+pandas 
+fastapi
+uvicorn
+python-multipart
+jinja2
+groq
+
+# pymupdf - > used to read PDF files
+# google-generativeai -> used to interact with Google's Generative AI models
+# python-dotenv -> used to load environment variables from a .env file 
+# pandas -> used for data manipulation and analysis
+# fastapi -> used to create the API endpoints for the application
+# uvicorn -> used as an ASGI server to run the FastAPI application

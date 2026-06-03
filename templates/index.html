@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Email Agent</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        /* Smooth transition for log entries */
+        .logs-content p {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(5px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+
+        <h1>AI Internship Outreach Agent</h1>
+
+        <p class="subtitle">
+            Automate internship outreach using AI
+        </p>
+
+        <form action="/send-emails" method="post" enctype="multipart/form-data">
+
+            <div class="input-group">
+                <label>Upload HR Contacts PDF</label>
+                <input type="file" name="pdf_file" required>
+            </div>
+
+            <div class="input-group">
+                <label>Upload Resume PDF</label>
+                <input type="file" name="resume_file" required>
+            </div>
+
+            <div class="input-group">
+                <label>Daily Email Limit</label>
+                <input type="number" name="daily_limit" value="10" min="1" max="50">
+            </div>
+
+            <div class="input-group">
+                <label>Delay Between Emails (Minutes)</label>
+                <input type="number" name="delay" value="1" min="1">
+            </div>
+
+            <button type="submit">
+                Start AI Automation
+            </button>
+
+        </form>
+
+        <p class="success-message" style="display: none;"></p>
+
+        <div class="logs-container" style="display: none;">
+            <h3>Automation Logs</h3>
+            <div class="logs-content"></div>
+        </div>
+
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const form = document.querySelector("form");
+            const submitBtn = form.querySelector("button[type='submit']");
+            const successMsg = document.querySelector(".success-message");
+            const logsContainer = document.querySelector(".logs-container");
+            const logsContent = document.querySelector(".logs-content");
+
+            let eventSource = null;
+            let renderedLogCount = 0;
+
+            // Helper to style a log line based on its emoji/content
+            function appendLogLine(message) {
+                const p = document.createElement("p");
+                p.textContent = message;
+
+                // Color code lines dynamically based on emojis
+                if (message.includes("✅")) {
+                    p.style.color = "#22c55e"; // Green
+                    p.style.fontWeight = "bold";
+                } else if (message.includes("🚀")) {
+                    p.style.color = "#38bdf8"; // Light Blue
+                } else if (message.includes("📨")) {
+                    p.style.color = "#818cf8"; // Purple/Indigo
+                } else if (message.includes("⏳")) {
+                    p.style.color = "#fbbf24"; // Yellow/Orange
+                } else if (message.includes("❌")) {
+                    p.style.color = "#ef4444"; // Red
+                    p.style.fontWeight = "bold";
+                } else if (message.includes("⚠️")) {
+                    p.style.color = "#fb923c"; // Orange
+                } else if (message.includes("📄") || message.includes("🔎") || message.includes("📋") || message.includes("📤") || message.includes("⚙️")) {
+                    p.style.color = "#cbd5e1"; // Off-white
+                }
+
+                logsContent.appendChild(p);
+                logsContainer.scrollTop = logsContainer.scrollHeight;
+                renderedLogCount++;
+            }
+
+            // Function to connect to SSE stream
+            function connectToStream(skipCount) {
+                if (eventSource) {
+                    eventSource.close();
+                }
+
+                eventSource = new EventSource(`/stream-logs?skip=${skipCount}`);
+
+                eventSource.onmessage = (event) => {
+                    const message = event.data;
+                    appendLogLine(message);
+
+                    // Check if complete
+                    if (message.includes("Background automation completed") || message.includes("Fatal error")) {
+                        eventSource.close();
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = "Start AI Automation";
+                    }
+                };
+
+                eventSource.onerror = (err) => {
+                    console.error("EventSource encountered an error:", err);
+                    eventSource.close();
+                };
+            }
+
+            // Check current status on page load/refresh
+            async function checkStatus() {
+                try {
+                    const res = await fetch("/status");
+                    const data = await res.json();
+
+                    if (data.logs && data.logs.length > 0) {
+                        logsContainer.style.display = "block";
+                        logsContent.innerHTML = "";
+                        renderedLogCount = 0;
+                        data.logs.forEach(log => appendLogLine(log));
+                    }
+
+                    if (data.is_running) {
+                        submitBtn.disabled = true;
+                        submitBtn.textContent = "Automation Running...";
+                        successMsg.style.display = "block";
+                        successMsg.textContent = "Email automation is running in the background!";
+                        connectToStream(renderedLogCount);
+                    }
+                } catch (err) {
+                    console.error("Failed to fetch initial status:", err);
+                }
+            }
+
+            // Handle asynchronous form submission
+            form.addEventListener("submit", async (e) => {
+                e.preventDefault();
+
+                submitBtn.disabled = true;
+                submitBtn.textContent = "Starting AI Automation...";
+                successMsg.style.display = "none";
+                logsContainer.style.display = "block";
+                logsContent.innerHTML = "";
+                renderedLogCount = 0;
+
+                const formData = new FormData(form);
+
+                try {
+                    const response = await fetch("/send-emails", {
+                        method: "POST",
+                        body: formData
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        successMsg.style.display = "block";
+                        successMsg.textContent = data.message;
+                        
+                        // Render initial logs returned from the request
+                        if (data.logs) {
+                            data.logs.forEach(log => appendLogLine(log));
+                        }
+
+                        // Connect to SSE stream to get real-time progress
+                        connectToStream(renderedLogCount);
+                    } else {
+                        successMsg.style.display = "block";
+                        successMsg.style.color = "#ef4444";
+                        successMsg.textContent = "Error: " + (data.detail || "Could not start automation.");
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = "Start AI Automation";
+                    }
+                } catch (err) {
+                    console.error("Submission failed:", err);
+                    successMsg.style.display = "block";
+                    successMsg.style.color = "#ef4444";
+                    successMsg.textContent = "Error starting automation. Please try again.";
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = "Start AI Automation";
+                }
+            });
+
+            // Run initial check
+            checkStatus();
+        });
+    </script>
+</body>
+
+</html>
